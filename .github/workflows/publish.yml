@@ -1,0 +1,36 @@
+name: publish
+
+# Publishes the built sdist and wheel to PyPI with Trusted Publishing (OIDC):
+# no API token, no secret to store. It only runs when you ask for it, so a tag
+# never fails just because the index is not set up yet.
+#
+# One-time setup, per package, on PyPI -> Publishing -> "Add a new pending publisher":
+#   PyPI Project Name : <this package>
+#   Owner             : suimajian
+#   Repository name   : <this repository>
+#   Workflow name     : publish.yml
+#   Environment name  : pypi
+#
+# Then: gh workflow run publish.yml -R suimajian/<repository>
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/${{ github.event.repository.name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade build
+      - run: python -m build
+      - uses: pypa/gh-action-pypi-publish@release/v1
