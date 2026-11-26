@@ -5,16 +5,9 @@ the code instead of trusting a hand-written list.
 
 ## Install
 
-Not on PyPI yet — `pip install pyi-deps` will 404 until 0.1.0 is published.
-Install from the repository instead:
-
 ```bash
-pip install git+https://github.com/suimajian/pyi-deps
+pip install pyi-deps
 ```
-
-The sdist and wheel are attached to the
-[releases](https://github.com/suimajian/pyi-deps/releases); the publish step is
-waiting for credentials, so nothing has been uploaded to the index.
 
 ## Use
 
@@ -164,9 +157,9 @@ losing the submodule hint.
 
 ## Status
 
-0.1.0 — not on PyPI yet. A tag (`v*`) builds sdist + wheel and uploads them as a
-workflow artifact; the publish step only runs when a `PYPI_API_TOKEN` repository
-secret exists, so nothing is published by accident.
+0.1.0 — published on PyPI via Trusted Publishing (OIDC, no token stored in the
+repository). Tags (`v*`) still build sdist + wheel and attach them to the GitHub
+release; the upload itself runs from `publish.yml` on demand.
 
 ## Tests
 
