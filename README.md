@@ -122,6 +122,27 @@ losing the submodule hint.
 - It collects *names*, not versions. Pair it with a pinned requirements file.
 - A syntax error in the tree is surfaced, not skipped: a broken file at build
   time is better than a missing import at run time.
+- Standard library names are filtered out by default (`--include-stdlib` keeps
+  them). They are already bundled; listing them only hides the real ones.
+- Relative imports (`from . import x`) are ignored — a staged build directory has
+  no package context to resolve them against.
+- It does not read the installed distributions' `top_level.txt`; what is on disk
+  under the scanned root is what gets listed.
+
+## Scope and non-goals
+
+- **Not a packaging tool.** It writes one module of `try: import x` lines and
+  stops. No hooks, no spec files, no version pinning.
+- **Not a sandbox.** `find_spec` may import parent packages, so scan inside the
+  same throwaway environment you build in.
+- **No import-time validation of your code** — that is what `pytest` and running
+  the frozen build are for.
+
+## Status
+
+0.1.0 — not on PyPI yet. A tag (`v*`) builds sdist + wheel and uploads them as a
+workflow artifact; the publish step only runs when a `PYPI_API_TOKEN` repository
+secret exists, so nothing is published by accident.
 
 ## Tests
 
