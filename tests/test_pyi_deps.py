@@ -173,3 +173,19 @@ def test_version_matches_pyproject():
     declared = re.search(r'^version = "([^"]+)"', (repo / "pyproject.toml").read_text(encoding="utf-8"), re.M)
     assert declared, "version missing from pyproject.toml"
     assert declared.group(1) == pyi_deps.__version__
+
+
+def test_readme_status_names_the_current_version():
+    """The Status paragraph is hand-edited; keep it honest."""
+    import pathlib
+    import re
+
+    import pyi_deps as mod
+
+    repo = pathlib.Path(__file__).resolve().parents[1]
+    readme = (repo / "README.md").read_text(encoding="utf-8")
+    status = re.search(r"^## Status\n\n(.+?)(?:\n\n|\Z)", readme, re.S | re.M)
+    assert status, "README has no Status paragraph"
+    assert mod.__version__ in status.group(1), (
+        f"README Status does not mention {mod.__version__}: {status.group(1)[:80]!r}"
+    )
