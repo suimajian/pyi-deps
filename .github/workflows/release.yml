@@ -3,6 +3,7 @@ name: release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -22,13 +23,14 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
-    # Publishing needs a PyPI API token in PYPI_API_TOKEN; without it this job is a no-op.
-    if: ${{ secrets.PYPI_API_TOKEN != '' }}
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist
+      # Publishing is opt-in: add PYPI_API_TOKEN as a repository secret and this step
+      # runs; without it the build artifacts are simply uploaded and the step is skipped.
       - uses: pypa/gh-action-pypi-publish@release/v1
+        if: ${{ secrets.PYPI_API_TOKEN != '' }}
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
