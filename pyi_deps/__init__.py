@@ -120,7 +120,9 @@ def main(argv: list[str] | None = None) -> int:
                  resolve_submodules=not args.no_submodules)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render(names), encoding="utf-8", newline="\n")
+    # Path.write_text(newline=...) only exists from 3.10; Path.open does the job on 3.9.
+    with out.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(render(names))
     print(f"pyi_deps: {len(names)} imports -> {out}")
     return 0
 
