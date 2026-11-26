@@ -3,6 +3,21 @@
 Generate the `hiddenimports` list PyInstaller cannot see for itself, by parsing
 the code instead of trusting a hand-written list.
 
+## Install
+
+Not on PyPI yet — `pip install pyi-deps` will 404 until 0.1.0 is published.
+Install from the repository instead:
+
+```bash
+pip install git+https://github.com/suimajian/pyi-deps
+```
+
+The sdist and wheel are attached to the
+[releases](https://github.com/suimajian/pyi-deps/releases); the publish step is
+waiting for credentials, so nothing has been uploaded to the index.
+
+## Use
+
 ```bash
 python -m pyi_deps --root src/runtime --out build/_deps.py
 ```
