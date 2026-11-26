@@ -23,14 +23,18 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
+    env:
+      # Publishing is opt-in: add PYPI_API_TOKEN as a repository secret. `secrets`
+      # cannot be read from an `if:` expression, so it is passed through env and the
+      # step checks env instead.
+      PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist
-      # Publishing is opt-in: add PYPI_API_TOKEN as a repository secret and this step
-      # runs; without it the build artifacts are simply uploaded and the step is skipped.
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        if: ${{ secrets.PYPI_API_TOKEN != '' }}
+      - name: Publish to PyPI
+        if: env.PYPI_TOKEN != ''
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          password: ${{ env.PYPI_TOKEN }}
