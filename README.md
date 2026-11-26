@@ -62,6 +62,34 @@ python -m pyi_deps --root stage/runtime --out stage/_deps.py \
 | `--local` | top-level name that is part of the app, so never emitted (repeatable) |
 | `--exclude` | import prefix to leave out of the build, e.g. `PIL` (repeatable) |
 | `--no-submodules` | skip `from package import module` resolution (cross-builds) |
+| `--include-stdlib` | also list `os`, `json`, … (off by default: the generated file is for dependencies) |
+
+## Every import is wrapped in `try/except`
+
+The scan cannot tell a required import from one the code guards itself:
+
+```python
+try:
+    import win32api          # optional on this platform
+except ImportError:
+    win32api = None
+```
+
+A bare `import win32api` in the generated module would turn that optional
+dependency into a hard requirement — and because the entry script imports the
+generated module, the app would die at startup on exactly the machines the guard
+was written for. So each name gets its own `try` block:
+
+```python
+try:
+    import win32api  # noqa: F401
+except ImportError:
+    pass  # optional dependency: PyInstaller still sees the import
+```
+
+PyInstaller's analysis is static, so an import inside a `try` is still found and
+still bundled; only the runtime behaviour changes. One `try` per name, not one
+around the block: otherwise the first missing package would skip all the rest.
 
 As a library:
 
@@ -81,7 +109,11 @@ imported name resolves to a module and, if so, emits the full dotted path
 (`Crypto.Cipher.AES`) as well.
 
 That check needs the packages installed on the scanning machine, which is why
-`--no-submodules` exists for cross-builds.
+`--no-submodules` exists for cross-builds. Note what it does: `find_spec("a.b.c")`
+**imports `a.b`** to look inside it, so a package with import-time side effects
+(reads config, opens a connection) runs them during the scan. Do the scan in the
+same throwaway environment you build in, or pass `--no-submodules` and accept
+losing the submodule hint.
 
 ## Limits
 

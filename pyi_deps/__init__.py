@@ -52,9 +52,39 @@ def _is_excluded(name: str, prefixes: Sequence[str]) -> bool:
     return any(name == p or name.startswith(p + ".") for p in prefixes)
 
 
+def _stdlib_names() -> frozenset:
+    """Top-level standard library modules, for filtering the output."""
+    names = getattr(sys, "stdlib_module_names", None)   # Python 3.10+
+    if names is not None:
+        return frozenset(names)
+    # 3.9 has no sys.stdlib_module_names; this list only needs to cover what a
+    # normal project imports, and a miss here costs one harmless extra import.
+    return frozenset({
+        "abc", "argparse", "array", "ast", "asyncio", "base64", "binascii", "bisect",
+        "builtins", "bz2", "calendar", "codecs", "collections", "concurrent", "configparser",
+        "contextlib", "copy", "csv", "ctypes", "dataclasses", "datetime", "decimal", "difflib",
+        "dis", "email", "enum", "errno", "faulthandler", "filecmp", "fileinput", "fnmatch",
+        "fractions", "ftplib", "functools", "gc", "getopt", "getpass", "gettext", "glob",
+        "gzip", "hashlib", "heapq", "hmac", "html", "http", "imaplib", "importlib", "inspect",
+        "io", "ipaddress", "itertools", "json", "keyword", "linecache", "locale", "logging",
+        "lzma", "mailbox", "math", "mimetypes", "multiprocessing", "netrc", "numbers",
+        "operator", "os", "pathlib", "pickle", "pkgutil", "platform", "plistlib", "pprint",
+        "queue", "random", "re", "readline", "secrets", "select", "selectors", "shlex",
+        "shutil", "signal", "site", "smtplib", "socket", "sqlite3", "ssl", "stat", "statistics",
+        "string", "struct", "subprocess", "sys", "sysconfig", "tarfile", "tempfile", "textwrap",
+        "threading", "time", "timeit", "tkinter", "token", "tokenize", "traceback", "types",
+        "typing", "unicodedata", "unittest", "urllib", "uuid", "venv", "warnings", "wave",
+        "weakref", "webbrowser", "xml", "zipfile", "zipimport", "zlib",
+    })
+
+
 def scan(root: str | Path, *, local_modules: Iterable[str] = (),
-         exclude_prefixes: Iterable[str] = (), resolve_submodules: bool = True) -> list[str]:
-    """Return every third-party import found under *root*, sorted and unique.
+         exclude_prefixes: Iterable[str] = (), resolve_submodules: bool = True,
+         include_stdlib: bool = False) -> list[str]:
+    """Return every import found under *root*, sorted and unique.
+
+    Standard library names are dropped by default: the generated module is meant
+    to list third-party dependencies, and ``import os`` in it is only noise.
 
     ``local_modules`` are top-level names that live next to the scanned files and
     are resolved by the runtime itself; excluding them keeps the generated module
@@ -62,10 +92,13 @@ def scan(root: str | Path, *, local_modules: Iterable[str] = (),
 
     ``resolve_submodules`` controls the ``from package import module`` heuristic;
     it needs the packages to be importable on the machine doing the scan, so turn
-    it off when cross-building.
+    it off when cross-building. That heuristic uses
+    :func:`importlib.util.find_spec`, which imports the parent package — run it in
+    the same throwaway environment you build in.
     """
     local = set(local_modules)
     excludes = tuple(exclude_prefixes)
+    stdlib = frozenset() if include_stdlib else _stdlib_names()
     names: set[str] = set()
 
     for path in sorted(Path(root).rglob("*.py")):
@@ -92,13 +125,34 @@ def scan(root: str | Path, *, local_modules: Iterable[str] = (),
 
     return sorted(
         n for n in names
-        if n.split(".")[0] not in local and not _is_excluded(n, excludes)
+        if n.split(".")[0] not in local
+        and n.split(".")[0] not in stdlib
+        and not _is_excluded(n, excludes)
     )
 
 
 def render(names: Iterable[str]) -> str:
-    """Render the generated module source."""
-    body = "".join(f"import {name}  # noqa: F401\n" for name in names)
+    """Render the generated module source.
+
+    Every import is wrapped in its own ``try/except ImportError``. The scan cannot
+    tell an import that is required from one the code guards with
+    ``try: import x / except ImportError``, and a bare ``import x`` in this file
+    would turn every optional dependency into a hard requirement — the generated
+    module is imported by the entry script, so a missing package would abort
+    startup before the app's own guard ever runs.
+
+    PyInstaller is not affected: it analyses imports statically, and an import
+    inside a ``try`` block is still seen and still pulled into the bundle. One
+    ``try`` per name, not one around the block, because a single missing package
+    would otherwise skip every import after it.
+    """
+    body = "".join(
+        "try:\n"
+        f"    import {name}  # noqa: F401\n"
+        "except ImportError:\n"
+        "    pass  # optional dependency: PyInstaller still sees the import\n"
+        for name in names
+    )
     return HEADER + body
 
 
@@ -114,10 +168,13 @@ def main(argv: list[str] | None = None) -> int:
                         help="import prefix to exclude, e.g. PIL (repeatable)")
     parser.add_argument("--no-submodules", action="store_true",
                         help="skip the 'from package import module' resolution")
+    parser.add_argument("--include-stdlib", action="store_true",
+                        help="also list standard library modules (off by default)")
     args = parser.parse_args(argv)
 
     names = scan(args.root, local_modules=args.local, exclude_prefixes=args.exclude,
-                 resolve_submodules=not args.no_submodules)
+                 resolve_submodules=not args.no_submodules,
+                 include_stdlib=args.include_stdlib)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     # Path.write_text(newline=...) only exists from 3.10; Path.open does the job on 3.9.
