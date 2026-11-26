@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import ast
+import pathlib
 
+import pyi_deps
 from pyi_deps import main, render, scan
 
 
@@ -145,3 +147,29 @@ def test_syntax_error_in_source_propagates(tmp_path):
         pass
     else:
         raise AssertionError("scan() should surface a SyntaxError, not skip the file")
+
+
+def test_runs_as_a_module(tmp_path):
+    """`python -m pyi_deps` has to work: it is the form the README documents."""
+    import subprocess
+    import sys
+
+    root = _tree(tmp_path, {"app.py": "import requests\n"})
+    out = tmp_path / "build" / "_deps.py"
+    repo = pathlib.Path(__file__).resolve().parents[1]
+    proc = subprocess.run(
+        [sys.executable, "-m", "pyi_deps", "--root", str(root), "--out", str(out)],
+        cwd=str(repo), capture_output=True, text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert out.is_file()
+    assert "import requests" in out.read_text(encoding="utf-8")
+
+
+def test_version_matches_pyproject():
+    import re
+
+    repo = pathlib.Path(__file__).resolve().parents[1]
+    declared = re.search(r'^version = "([^"]+)"', (repo / "pyproject.toml").read_text(encoding="utf-8"), re.M)
+    assert declared, "version missing from pyproject.toml"
+    assert declared.group(1) == pyi_deps.__version__

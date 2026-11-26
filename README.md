@@ -13,6 +13,8 @@ pip install pyi-deps
 
 ```bash
 python -m pyi_deps --root src/runtime --out build/_deps.py
+# same thing, if you prefer the console script:
+pyi-deps --root src/runtime --out build/_deps.py
 ```
 
 ```python
@@ -157,8 +159,9 @@ losing the submodule hint.
 
 ## Status
 
-0.1.1 — on PyPI (`pip install pyi-deps`); 0.1.0 is yanked because its project page
-still carried the pre-release README. Trusted Publishing (OIDC) does the upload,
+0.1.2 — on PyPI (`pip install pyi-deps`); 0.1.1 is yanked and 0.1.0 is yanked as
+well. 0.1.1 shipped without `__main__.py`, so `python -m pyi_deps` failed; 0.1.0
+additionally carried the pre-release README. Trusted Publishing (OIDC) does the upload,
 so no token lives in this repository. Tags (`v*`) build sdist + wheel and attach
 them to the GitHub release.
 
